@@ -3,21 +3,48 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 7 API 35 (final v4)
-REM  Исправлен for /f с кавычками
+REM  Android Emulator — DIAGNOSTIC
+REM  Ничего не меняет, только собирает информацию.
 REM ============================================================
 
-REM ====== НАСТРОЙКИ ======
-set "AVD_NAME=Pixel_7_API_35"
-set "SYSTEM_IMAGE=system-images;android-35;google_apis_playstore;x86_64"
-set "DEVICE=pixel_7"
-set "GPU_MODE=angle_indirect"
-set "RAM_MB=2048"
-set "CPU_CORES=2"
-set "BOOT_TIMEOUT=180"
-set "ADB_WAIT=60"
+set "AVD_NAME=Pixel_5_API_33"
+set "LOG=%USERPROFILE%\Desktop\emulator_diag.txt"
 
-REM ====== ПОИСК SDK ======
+echo Сбор диагностики... Подождите.
+
+> "%LOG%" echo ============================================================
+>>"%LOG%" echo  Android Emulator Diagnostic
+>>"%LOG%" echo  Дата: %DATE% %TIME%
+>>"%LOG%" echo  Компьютер: %COMPUTERNAME%
+>>"%LOG%" echo  Пользователь: %USERNAME%
+>>"%LOG%" echo ============================================================
+>>"%LOG%" echo.
+
+REM ====== 1. СИСТЕМА ======
+>>"%LOG%" echo ====== 1. СИСТЕМА ======
+>>"%LOG%" ver
+>>"%LOG%" echo.
+>>"%LOG%" wmic os get Caption,Version,OSArchitecture /format:list 2>nul | findstr /r "."
+>>"%LOG%" echo.
+>>"%LOG%" wmic computersystem get TotalPhysicalMemory /format:list 2>nul | findstr /r "."
+>>"%LOG%" echo.
+>>"%LOG%" wmic logicaldisk get Caption,Size,FreeSpace 2>nul
+>>"%LOG%" echo.
+
+REM ====== 2. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ======
+>>"%LOG%" echo ====== 2. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ======
+>>"%LOG%" echo LOCALAPPDATA=%LOCALAPPDATA%
+>>"%LOG%" echo USERPROFILE=%USERPROFILE%
+>>"%LOG%" echo TEMP=%TEMP%
+>>"%LOG%" echo ANDROID_HOME=%ANDROID_HOME%
+>>"%LOG%" echo ANDROID_SDK_ROOT=%ANDROID_SDK_ROOT%
+>>"%LOG%" echo.
+>>"%LOG%" echo PATH:
+>>"%LOG%" echo %PATH%
+>>"%LOG%" echo.
+
+REM ====== 3. ПОИСК SDK ======
+>>"%LOG%" echo ====== 3. ПОИСК SDK ======
 set "ANDROID_HOME="
 for %%D in (
     "%LOCALAPPDATA%\Android\Sdk"
@@ -27,178 +54,156 @@ for %%D in (
 ) do (
     if exist "%%~D\emulator\emulator.exe" (
         set "ANDROID_HOME=%%~D"
-        goto :sdk_found
+        >>"%LOG%" echo Найден SDK: %%~D
     )
 )
-echo [!] Android SDK не найден.
-pause & exit /b 1
-:sdk_found
-set "ANDROID_SDK_ROOT=%ANDROID_HOME%"
+if not defined ANDROID_HOME (
+    >>"%LOG%" echo [!] SDK НЕ НАЙДЕН ни в одном из стандартных путей
+)
+>>"%LOG%" echo.
 
-set "EMULATOR=%ANDROID_HOME%\emulator\emulator.exe"
-set "ADB=%ANDROID_HOME%\platform-tools\adb.exe"
+if defined ANDROID_HOME (
+    set "EMULATOR=%ANDROID_HOME%\emulator\emulator.exe"
+    set "ADB=%ANDROID_HOME%\platform-tools\adb.exe"
 
-set "SDKMANAGER="
-set "AVDMANAGER="
-for /d %%V in ("%ANDROID_HOME%\cmdline-tools\*") do (
-    if exist "%%~V\bin\sdkmanager.bat" (
-        set "SDKMANAGER=%%~V\bin\sdkmanager.bat"
-        set "AVDMANAGER=%%~V\bin\avdmanager.bat"
+    >>"%LOG%" echo EMULATOR = !EMULATOR!
+    >>"%LOG%" echo ADB      = !ADB!
+    >>"%LOG%" echo.
+
+    REM ====== 4. ПРОВЕРКА ФАЙЛОВ ======
+    >>"%LOG%" echo ====== 4. ПРОВЕРКА ФАЙЛОВ ======
+    if exist "!EMULATOR!" (>>"%LOG%" echo [+] emulator.exe найден) else (>>"%LOG%" echo [!] emulator.exe НЕ найден)
+    if exist "!ADB!" (>>"%LOG%" echo [+] adb.exe найден) else (>>"%LOG%" echo [!] adb.exe НЕ найден)
+    >>"%LOG%" echo.
+
+    REM ====== 5. ВЕРСИЯ ADB ======
+    >>"%LOG%" echo ====== 5. ВЕРСИЯ ADB ======
+    if exist "!ADB!" (
+        "!ADB!" version >>"%LOG%" 2>&1
+    ) else (
+        >>"%LOG%" echo adb.exe не найден
     )
+    >>"%LOG%" echo.
+
+    REM ====== 6. ВЕРСИЯ ЭМУЛЯТОРА ======
+    >>"%LOG%" echo ====== 6. ВЕРСИЯ ЭМУЛЯТОРА ======
+    if exist "!EMULATOR!" (
+        "!EMULATOR%" -version >>"%LOG%" 2>&1
+    ) else (
+        >>"%LOG%" echo emulator.exe не найден
+    )
+    >>"%LOG%" echo.
 )
 
-echo ============================================================
-echo   Android Emulator — Pixel 7 API 35
-echo ============================================================
-echo [*] ANDROID_HOME = %ANDROID_HOME%
-echo [*] GPU_MODE     = %GPU_MODE%
-echo [*] RAM / CPU    = %RAM_MB% MB / %CPU_CORES% ядер
-echo ============================================================
-echo.
+REM ====== 7. ПОРТ 5037 ======
+>>"%LOG%" echo ====== 7. ПОРТ 5037 ======
+>>"%LOG%" netstat -ano 2>nul | findstr ":5037"
+>>"%LOG%" echo.
 
-REM ====== СТОП СТАРЫХ ПРОЦЕССОВ ======
-echo [*] Остановка старых эмуляторов и ADB...
-taskkill /F /IM emulator.exe /T >nul 2>&1
-taskkill /F /IM qemu-system-x86_64.exe /T >nul 2>&1
-taskkill /F /IM adb.exe /T >nul 2>&1
-timeout /t 2 /nobreak >nul
+REM ====== 8. ПРОЦЕССЫ ADB / EMULATOR / QEMU ======
+>>"%LOG%" echo ====== 8. ПРОЦЕССЫ ======
+>>"%LOG%" tasklist 2>nul | findstr /i "adb emulator qemu"
+>>"%LOG%" echo.
 
-REM ====== AVD: ПРОВЕРКА / СОЗДАНИЕ ======
-"%EMULATOR%" -list-avds 2>nul | findstr /x /c:"%AVD_NAME%" >nul
-if errorlevel 1 (
-    echo [!] AVD "%AVD_NAME%" не найден. Создаю...
-    if not exist "%SDKMANAGER%" (echo [!] sdkmanager не найден. & pause & exit /b 1)
-    call "%SDKMANAGER%" --sdk_root="%ANDROID_HOME%" "%SYSTEM_IMAGE%" --licenses < nul
-    call "%SDKMANAGER%" --sdk_root="%ANDROID_HOME%" "%SYSTEM_IMAGE%"
-    if not exist "%AVDMANAGER%" (echo [!] avdmanager не найден. & pause & exit /b 1)
-    echo no | call "%AVDMANAGER%" create avd -n "%AVD_NAME%" -k "%SYSTEM_IMAGE%" -d "%DEVICE%" --force
-) else (
-    echo [+] AVD "%AVD_NAME%" найден.
+REM ====== 9. СЛУЖБЫ ГИПЕРВИЗОРА ======
+>>"%LOG%" echo ====== 9. ГИПЕРВИЗОР ======
+>>"%LOG%" sc query aehd 2>nul | findstr /r "."
+>>"%LOG%" echo ---
+>>"%LOG%" sc query gvm 2>nul | findstr /r "."
+>>"%LOG%" echo ---
+>>"%LOG%" sc query whpx 2>nul | findstr /r "."
+>>"%LOG%" echo.
+
+REM ====== 10. AVD ======
+>>"%LOG%" echo ====== 10. AVD ======
+if defined ANDROID_HOME (
+    "!EMULATOR!" -list-avds >>"%LOG%" 2>&1
 )
+>>"%LOG%" echo.
 
+REM ====== 11. ФАЙЛЫ AVD ======
+>>"%LOG%" echo ====== 11. ФАЙЛЫ AVD "%AVD_NAME%" ======
 set "AVD_DIR=%USERPROFILE%\.android\avd\%AVD_NAME%.avd"
-set "AVD_INI=%AVD_DIR%\config.ini"
-set "HW_QEMU_INI=%AVD_DIR%\hardware-qemu.ini"
-set "GPU_CHANGED=0"
-
-REM ====== ПРАВКА config.ini ======
-if exist "%AVD_INI%" (
-    set "CUR_GPU="
-    for /f "tokens=1,* delims==" %%A in ('findstr /b /i "hw.gpu.mode" "%AVD_INI%" 2^>nul') do (
-        if not defined CUR_GPU set "CUR_GPU=%%B"
+if exist "%AVD_DIR%" (
+    >>"%LOG%" echo [+] Папка AVD существует: %AVD_DIR%
+    >>"%LOG%" echo Содержимое:
+    dir /b "%AVD_DIR%" >>"%LOG%" 2>&1
+    >>"%LOG%" echo.
+    >>"%LOG%" echo --- config.ini ---
+    if exist "%AVD_DIR%\config.ini" (
+        type "%AVD_DIR%\config.ini" >>"%LOG%" 2>&1
+    ) else (
+        >>"%LOG%" echo config.ini НЕ найден
     )
-    if /i not "!CUR_GPU!"=="%GPU_MODE%" (
-        echo [*] config.ini: было !CUR_GPU! -^> %GPU_MODE%
-        set "GPU_CHANGED=1"
+    >>"%LOG%" echo.
+    >>"%LOG%" echo --- hardware-qemu.ini ---
+    if exist "%AVD_DIR%\hardware-qemu.ini" (
+        type "%AVD_DIR%\hardware-qemu.ini" >>"%LOG%" 2>&1
+    ) else (
+        >>"%LOG%" echo hardware-qemu.ini НЕ найден
     )
-
-    findstr /v /b /i "hw.gpu.enabled hw.gpu.mode hw.ramSize hw.cpu.ncore vm.heapSize hw.audioInput hw.audioOutput" "%AVD_INI%" > "%AVD_INI%.tmp"
-    move /y "%AVD_INI%.tmp" "%AVD_INI%" >nul
-
-    >>"%AVD_INI%" echo hw.gpu.enabled=yes
-    >>"%AVD_INI%" echo hw.gpu.mode=%GPU_MODE%
-    >>"%AVD_INI%" echo hw.ramSize=%RAM_MB%
-    >>"%AVD_INI%" echo hw.cpu.ncore=%CPU_CORES%
-    >>"%AVD_INI%" echo vm.heapSize=256
-    >>"%AVD_INI%" echo hw.audioInput=no
-    >>"%AVD_INI%" echo hw.audioOutput=no
-
-    echo [+] config.ini: GPU=%GPU_MODE%, RAM=%RAM_MB%, CPU=%CPU_CORES%
+    >>"%LOG%" echo.
+    >>"%LOG%" echo --- snapshots ---
+    if exist "%AVD_DIR%\snapshots" (
+        dir /b "%AVD_DIR%\snapshots" >>"%LOG%" 2>&1
+    ) else (
+        >>"%LOG%" echo папка snapshots отсутствует
+    )
+) else (
+    >>"%LOG%" echo [!] Папка AVD НЕ существует: %AVD_DIR%
 )
-
-REM ====== ПРАВКА hardware-qemu.ini ======
-if exist "%HW_QEMU_INI%" (
-    findstr /v /b /i "hw.gpu.enabled hw.gpu.mode" "%HW_QEMU_INI%" > "%HW_QEMU_INI%.tmp"
-    move /y "%HW_QEMU_INI%.tmp" "%HW_QEMU_INI%" >nul
-    >>"%HW_QEMU_INI%" echo hw.gpu.enabled=yes
-    >>"%HW_QEMU_INI%" echo hw.gpu.mode=%GPU_MODE%
-    echo [+] hardware-qemu.ini: GPU=%GPU_MODE%
+>>"%LOG%" echo.
+>>"%LOG%" echo --- %USERPROFILE%\.android\avd\ (все AVD) ---
+if exist "%USERPROFILE%\.android\avd\" (
+    dir /b "%USERPROFILE%\.android\avd\" >>"%LOG%" 2>&1
+) else (
+    >>"%LOG%" echo папка .android\avd отсутствует
 )
+>>"%LOG%" echo.
 
-REM ====== СБРОС СНАПШОТА ПРИ СМЕНЕ GPU ======
-if "%GPU_CHANGED%"=="1" (
-    echo [*] GPU изменился — удаляю старый снапшот...
-    rmdir /s /q "%AVD_DIR%\snapshots" >nul 2>&1
+REM ====== 12. ADB DEVICES ======
+>>"%LOG%" echo ====== 12. ADB DEVICES (без запуска эмулятора) ======
+if defined ANDROID_HOME (
+    if exist "!ADB!" (
+        "!ADB!" devices >>"%LOG%" 2>&1
+    )
 )
+>>"%LOG%" echo.
 
-REM ============================================================
-REM  ЗАПУСК ЭМУЛЯТОРА
-REM ============================================================
-echo [*] Запуск эмулятора...
-start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
-    -no-boot-anim ^
-    -no-audio ^
-    -no-metrics
+REM ====== 13. ADB GET-STATE ======
+>>"%LOG%" echo ====== 13. ADB GET-STATE ======
+if defined ANDROID_HOME (
+    if exist "!ADB!" (
+        "!ADB!" get-state >>"%LOG%" 2>&1
+    )
+)
+>>"%LOG%" echo.
 
-REM ============================================================
-REM  ОЖИДАНИЕ ADB — БЕЗ вложенных кавычек в for /f
-REM ============================================================
-if not exist "%ADB%" goto :done
+REM ====== 14. АНТИВИРУС (WMI) ======
+>>"%LOG%" echo ====== 14. АНТИВИРУС (Windows Security) ======
+>>"%LOG%" wmic /namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName,productState /format:list 2>nul | findstr /r "."
+>>"%LOG%" echo.
+
+REM ====== 15. DXRENDER / GPU ======
+>>"%LOG%" echo ====== 15. GPU ======
+>>"%LOG%" wmic path win32_VideoController get Name,DriverVersion,DriverDate /format:list 2>nul | findstr /r "."
+>>"%LOG%" echo.
+
+REM ====== 16. СВОБОДНАЯ ПАМЯТЬ ======
+>>"%LOG%" echo ====== 16. ПАМЯТЬ ======
+>>"%LOG%" wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /format:list 2>nul | findstr /r "."
+>>"%LOG%" echo.
+
+>>"%LOG%" echo ============================================================
+>>"%LOG%" echo  КОНЕЦ ДИАГНОСТИКИ
+>>"%LOG%" echo ============================================================
 
 echo.
-echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
-
-set "ADB_LIST=%TEMP%\adb_list.txt"
-set /a TOTAL_WAIT=0
-set "DEVICE_FOUND="
-
-:wait_device_loop
-
-"%ADB%" devices 2>nul > "%ADB_LIST%"
-
-set "DEVICE_FOUND="
-for /f "tokens=1" %%D in ('type "%ADB_LIST%" ^| findstr /r "^emulator-"') do (
-    set "DEVICE_FOUND=%%D"
-)
-
-if defined DEVICE_FOUND goto :device_appeared
-
-set /a TOTAL_WAIT+=1
-if !TOTAL_WAIT! GEQ %ADB_WAIT% (
-    echo [!] Устройство не появилось за %ADB_WAIT% сек.
-    del /q "%ADB_LIST%" >nul 2>&1
-    goto :done
-)
-
-set /a MOD=TOTAL_WAIT %% 10
-if !MOD! EQU 0 echo [*] Ждём... !TOTAL_WAIT! сек.
-
-timeout /t 1 /nobreak >nul
-goto :wait_device_loop
-
-:device_appeared
-echo [+] Устройство найдено: %DEVICE_FOUND%
-del /q "%ADB_LIST%" >nul 2>&1
-
-REM ============================================================
-REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
-REM ============================================================
-echo [*] Ожидание полной загрузки Android (макс. %BOOT_TIMEOUT% сек)...
-set /a BOOT_WAIT=0
-
-:wait_boot
-set "BOOT="
-for /f "delims=" %%B in ('"%ADB%" -s %DEVICE_FOUND% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
-if "!BOOT!"=="1" goto :boot_done
-
-set /a BOOT_WAIT+=1
-if !BOOT_WAIT! GEQ %BOOT_TIMEOUT% (
-    echo [!] Загрузка не завершилась за %BOOT_TIMEOUT% сек.
-    goto :done
-)
-
-set /a MOD=BOOT_WAIT %% 15
-if !MOD! EQU 0 echo [*] Загрузка... !BOOT_WAIT! сек.
-
-timeout /t 1 /nobreak >nul
-goto :wait_boot
-
-:boot_done
+echo ============================================================
+echo  Диагностика собрана:
+echo  %LOG%
+echo ============================================================
 echo.
-echo [+] ====================================================
-echo [+]  Эмулятор "%AVD_NAME%" загружен и готов к работе!
-echo [+] ====================================================
-echo.
-
-:done
+echo Отправьте этот файл разработчику.
+pause
 endlocal
