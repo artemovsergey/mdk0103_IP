@@ -3,8 +3,8 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 5 API 33 (universal)
-REM  Работает на ADB 33.x и 36.x (обходит баг mDNS)
+REM  Android Emulator Launcher — Pixel 5 API 33 (final v5)
+REM  Без start /b, без временных файлов
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
@@ -16,13 +16,11 @@ set "RAM_MB=2048"
 set "CPU_CORES=2"
 set "BOOT_TIMEOUT=180"
 set "ADB_WAIT=60"
-set "ADB_PROBE_TIMEOUT=8"
 
-REM ====== ОБХОД БАГА ADB 36.x: ОТКЛЮЧАЕМ mDNS ======
+REM ====== ОБХОД БАГА ADB 36.x ======
 set "ADB_MDNS_OPENSCREEN=0"
 set "ADB_MDNS_ENABLED=0"
 set "ADB_MDNS_AUTO_CONNECT=0"
-set "ADB_LOCAL_TRANSPORT_MAX_PORT=5585"
 
 REM ====== ПОИСК SDK ======
 set "ANDROID_HOME="
@@ -60,13 +58,6 @@ echo ============================================================
 echo [*] ANDROID_HOME = %ANDROID_HOME%
 echo [*] GPU_MODE     = %GPU_MODE%
 echo [*] RAM / CPU    = %RAM_MB% MB / %CPU_CORES% ядер
-
-REM --- Определяем версию ADB ---
-set "ADB_VER="
-for /f "tokens=2" %%V in ('"%ADB%" version 2^>nul ^| findstr /i "Version"') do (
-    if not defined ADB_VER set "ADB_VER=%%V"
-)
-echo [*] ADB версия   = %ADB_VER%
 echo ============================================================
 echo.
 
@@ -76,68 +67,6 @@ taskkill /F /IM emulator.exe /T >nul 2>&1
 taskkill /F /IM qemu-system-x86_64.exe /T >nul 2>&1
 taskkill /F /IM adb.exe /T >nul 2>&1
 timeout /t 2 /nobreak >nul
-
-REM ====== ПРОВЕРКА ADB НА ЗАВИСАНИЕ ======
-echo [*] Проверка ADB на зависание (макс. %ADB_PROBE_TIMEOUT% сек)...
-
-set "PROBE_FILE=%TEMP%\adb_probe_%RANDOM%.txt"
-del /q "%PROBE_FILE%" >nul 2>&1
-start /b cmd /c ""%ADB%" devices > "%PROBE_FILE%" 2>nul"
-
-set /a PROBE_WAIT=0
-:probe_loop
-if exist "%PROBE_FILE%" (
-    for %%S in ("%PROBE_FILE%") do (
-        if %%~zS GTR 0 goto :probe_ok
-    )
-)
-set /a PROBE_WAIT+=1
-if !PROBE_WAIT! GEQ %ADB_PROBE_TIMEOUT% (
-    echo [!] ADB не отвечает за %ADB_PROBE_TIMEOUT% сек — завис.
-    echo [*] Убиваю adb.exe и пробую снова с отключённым mDNS...
-    taskkill /F /IM adb.exe /T >nul 2>&1
-    timeout /t 2 /nobreak >nul
-    del /q "%PROBE_FILE%" >nul 2>&1
-    goto :probe_failed
-)
-timeout /t 1 /nobreak >nul
-goto :probe_loop
-
-:probe_ok
-echo [+] ADB работает.
-del /q "%PROBE_FILE%" >nul 2>&1
-goto :adb_ready
-
-:probe_failed
-REM Пробуем ещё раз с явным портом
-set "PROBE_FILE=%TEMP%\adb_probe_%RANDOM%.txt"
-del /q "%PROBE_FILE%" >nul 2>&1
-start /b cmd /c ""%ADB%" -L tcp:5037 devices > "%PROBE_FILE%" 2>nul"
-
-set /a PROBE_WAIT=0
-:probe_loop2
-if exist "%PROBE_FILE%" (
-    for %%S in ("%PROBE_FILE%") do (
-        if %%~zS GTR 0 goto :probe_ok2
-    )
-)
-set /a PROBE_WAIT+=1
-if !PROBE_WAIT! GEQ %ADB_PROBE_TIMEOUT% (
-    echo [!] ADB всё равно не отвечает.
-    echo [!] Запускаю эмулятор без ожидания ADB.
-    echo [!] Проверьте вручную: adb devices
-    del /q "%PROBE_FILE%" >nul 2>&1
-    set "SKIP_ADB_WAIT=1"
-    goto :adb_ready
-)
-timeout /t 1 /nobreak >nul
-goto :probe_loop2
-
-:probe_ok2
-echo [+] ADB работает (с явным портом).
-del /q "%PROBE_FILE%" >nul 2>&1
-
-:adb_ready
 
 REM ====== AVD: ПРОВЕРКА / СОЗДАНИЕ ======
 "%EMULATOR%" -list-avds 2>nul | findstr /x /c:"%AVD_NAME%" >nul
@@ -204,33 +133,22 @@ start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -no-audio ^
     -no-metrics
 
-REM ====== ЕСЛИ ADB ЗАВИС — НЕ ЖДЁМ ======
-if "%SKIP_ADB_WAIT%"=="1" (
-    echo.
-    echo [!] ADB не отвечает. Эмулятор запущен, но скрипт не ждёт загрузки.
-    echo [!] Проверьте загрузку вручную: adb devices
-    goto :done
-)
-
 REM ============================================================
-REM  ОЖИДАНИЕ ADB — БЕЗ вложенных кавычек
+REM  ОЖИДАНИЕ ADB — ПРЯМОЙ вызов, БЕЗ start /b
 REM ============================================================
 if not exist "%ADB%" goto :done
 
 echo.
 echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
 
-set "ADB_LIST=%TEMP%\adb_list.txt"
 set /a TOTAL_WAIT=0
 set "DEVICE_FOUND="
 
 :wait_device_loop
 
-"%ADB%" -L tcp:5037 devices 2>nul > "%ADB_LIST%"
-
 set "DEVICE_FOUND="
-for /f "tokens=1" %%D in ('type "%ADB_LIST%" ^| findstr /r "^emulator-"') do (
-    set "DEVICE_FOUND=%%D"
+for /f "tokens=1" %%D in ('"%ADB%" devices 2^>nul ^| findstr /r "^emulator-"') do (
+    if not defined DEVICE_FOUND set "DEVICE_FOUND=%%D"
 )
 
 if defined DEVICE_FOUND goto :device_appeared
@@ -238,7 +156,6 @@ if defined DEVICE_FOUND goto :device_appeared
 set /a TOTAL_WAIT+=1
 if !TOTAL_WAIT! GEQ %ADB_WAIT% (
     echo [!] Устройство не появилось за %ADB_WAIT% сек.
-    del /q "%ADB_LIST%" >nul 2>&1
     goto :done
 )
 
@@ -250,7 +167,6 @@ goto :wait_device_loop
 
 :device_appeared
 echo [+] Устройство найдено: %DEVICE_FOUND%
-del /q "%ADB_LIST%" >nul 2>&1
 
 REM ============================================================
 REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
@@ -260,7 +176,7 @@ set /a BOOT_WAIT=0
 
 :wait_boot
 set "BOOT="
-for /f "delims=" %%B in ('"%ADB%" -L tcp:5037 -s %DEVICE_FOUND% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
+for /f "delims=" %%B in ('"%ADB%" -s %DEVICE_FOUND% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
 if "!BOOT!"=="1" goto :boot_done
 
 set /a BOOT_WAIT+=1
