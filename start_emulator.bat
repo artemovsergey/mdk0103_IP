@@ -3,8 +3,7 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 5 API 33 (final v7)
-REM  Без start /b, без echo ^| findstr в цикле
+REM  Android Emulator Launcher — Pixel 5 API 33 (stable v7)
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
@@ -129,29 +128,22 @@ start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -no-metrics
 
 REM ============================================================
-REM  ОЖИДАНИЕ ADB — без echo ^| findstr в цикле
+REM  ОЖИДАНИЕ ADB — ПРОСТОЙ ПРЯМОЙ ВЫЗОВ
 REM ============================================================
 if not exist "%ADB%" goto :done
 
 echo.
 echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
 
-set "ADB_LIST=%TEMP%\adb_list.txt"
-set "ADB_FILTERED=%TEMP%\adb_filtered.txt"
 set /a TOTAL_WAIT=0
 set "DEVICE_FOUND="
 
 :wait_device_loop
 
-REM --- adb devices пишет в файл ---
-"%ADB%" devices > "%ADB_LIST%" 2>nul
-
-REM --- фильтруем через findstr ПРЯМО по файлу (без цикла) ---
-findstr /r "^emulator-" "%ADB_LIST%" > "%ADB_FILTERED%" 2>nul
-
 set "DEVICE_FOUND="
-for /f "tokens=1" %%D in (%ADB_FILTERED%) do (
-    if not defined DEVICE_FOUND set "DEVICE_FOUND=%%D"
+for /f "tokens=1" %%D in ('""%ADB%" devices" 2^>nul') do (
+    echo %%D | findstr /r "^emulator-" >nul
+    if not errorlevel 1 set "DEVICE_FOUND=%%D"
 )
 
 if defined DEVICE_FOUND goto :device_appeared
@@ -159,7 +151,6 @@ if defined DEVICE_FOUND goto :device_appeared
 set /a TOTAL_WAIT+=1
 if !TOTAL_WAIT! GEQ %ADB_WAIT% (
     echo [!] Устройство не появилось за %ADB_WAIT% сек.
-    del /q "%ADB_LIST%" "%ADB_FILTERED%" >nul 2>&1
     goto :done
 )
 
@@ -171,7 +162,6 @@ goto :wait_device_loop
 
 :device_appeared
 echo [+] Устройство найдено: %DEVICE_FOUND%
-del /q "%ADB_LIST%" "%ADB_FILTERED%" >nul 2>&1
 
 REM ============================================================
 REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
@@ -204,5 +194,4 @@ echo [+] ====================================================
 echo.
 
 :done
-del /q "%ADB_LIST%" "%ADB_FILTERED%" >nul 2>&1
 endlocal
