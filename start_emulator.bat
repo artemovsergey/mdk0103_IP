@@ -3,8 +3,8 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 7 API 35 (final v2)
-REM  Защита от зависания ADB
+REM  Android Emulator Launcher — Pixel 7 API 35 (final v3)
+REM  Без ручного adb start-server — защита от зависания
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
@@ -137,13 +137,10 @@ if "%GPU_CHANGED%"=="1" (
     rmdir /s /q "%AVD_DIR%\snapshots" >nul 2>&1
 )
 
-REM ====== ЗАПУСК ADB ======
-if exist "%ADB%" (
-    echo [*] Запуск ADB-сервера...
-    "%ADB%" start-server >nul 2>&1
-)
-
-REM ====== ЗАПУСК ЭМУЛЯТОРА ======
+REM ============================================================
+REM  ЗАПУСК ЭМУЛЯТОРА (БЕЗ adb start-server!)
+REM  Эмулятор сам поднимет ADB, когда запустится.
+REM ============================================================
 echo [*] Запуск эмулятора...
 start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -no-boot-anim ^
@@ -164,14 +161,7 @@ set "DEVICE_FOUND="
 
 :wait_device_loop
 
-REM --- Проверяем, жив ли adb.exe ---
-tasklist /FI "IMAGENAME eq adb.exe" 2>nul | find /i "adb.exe" >nul
-if errorlevel 1 (
-    "%ADB%" start-server >nul 2>&1
-    timeout /t 2 /nobreak >nul
-)
-
-REM --- adb devices в фоне с записью в файл ---
+REM --- adb devices в фоне с записью в файл (не блокирует скрипт) ---
 set "ADB_OUT=%TEMP%\adb_devices_%RANDOM%.txt"
 del /q "%ADB_OUT%" >nul 2>&1
 start /b cmd /c ""%ADB%" devices 2>nul > "%ADB_OUT%""
@@ -185,15 +175,15 @@ if exist "%ADB_OUT%" (
 )
 set /a ADB_CMD_WAIT+=1
 if !ADB_CMD_WAIT! GEQ %ADB_CMD_TIMEOUT% (
-    echo [!] adb devices не ответил за %ADB_CMD_TIMEOUT% сек. Убиваю adb.exe и перезапускаю...
+    echo [!] adb devices не ответил за %ADB_CMD_TIMEOUT% сек. Убиваю adb.exe...
     taskkill /F /IM adb.exe /T >nul 2>&1
     timeout /t 2 /nobreak >nul
-    "%ADB%" start-server >nul 2>&1
+    REM НЕ вызываем start-server! Пусть эмулятор сам поднимет ADB.
     set /a ADB_RETRIES+=1
     if !ADB_RETRIES! GEQ %ADB_RETRIES_MAX% (
-        echo [!] ADB не удаётся запустить за %ADB_RETRIES_MAX% попытки.
+        echo [!] ADB не отвечает за %ADB_RETRIES_MAX% попытки.
         echo     Проверьте порт 5037: netstat -ano ^| findstr :5037
-        echo     Проверьте антивирус (исключения для platform-tools и .android)
+        echo     Проверьте антивирус.
         del /q "%ADB_OUT%" >nul 2>&1
         goto :done
     )
