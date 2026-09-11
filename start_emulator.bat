@@ -3,8 +3,8 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 7 API 35 (final v3)
-REM  Без ручного adb start-server — защита от зависания
+REM  Android Emulator Launcher — Pixel 7 API 35 (final)
+REM  БЕЗ adb start-server — защита от зависания
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
@@ -16,9 +16,6 @@ set "RAM_MB=2048"
 set "CPU_CORES=2"
 set "BOOT_TIMEOUT=180"
 set "ADB_WAIT=60"
-set "ADB_CMD_TIMEOUT=5"
-set "ADB_RETRIES_MAX=3"
-set "ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL=3"
 
 REM ====== ПОИСК SDK ======
 set "ANDROID_HOME="
@@ -53,31 +50,18 @@ for /d %%V in ("%ANDROID_HOME%\cmdline-tools\*") do (
 echo ============================================================
 echo   Android Emulator — Pixel 7 API 35
 echo ============================================================
+echo [*] ANDROID_HOME = %ANDROID_HOME%
 echo [*] GPU_MODE     = %GPU_MODE%
 echo [*] RAM / CPU    = %RAM_MB% MB / %CPU_CORES% ядер
 echo ============================================================
 echo.
 
-REM ====== СТОП СТАРЫХ ЭМУЛЯТОРОВ И ADB ======
-echo [*] Остановка старых эмуляторов и зависшего ADB...
-taskkill /F /IM adb.exe /T >nul 2>&1
+REM ====== СТОП СТАРЫХ ПРОЦЕССОВ ======
+echo [*] Остановка старых эмуляторов и ADB...
 taskkill /F /IM emulator.exe /T >nul 2>&1
 taskkill /F /IM qemu-system-x86_64.exe /T >nul 2>&1
+taskkill /F /IM adb.exe /T >nul 2>&1
 timeout /t 2 /nobreak >nul
-
-REM ====== ПРОВЕРКА ПОРТА 5037 ======
-echo [*] Проверка порта 5037...
-set "PORT_BUSY=0"
-for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr ":5037" ^| findstr "LISTENING"') do (
-    set "PORT_BUSY=1"
-    echo [!] Порт 5037 занят процессом PID=%%P. Убиваю...
-    taskkill /F /PID %%P >nul 2>&1
-)
-if "!PORT_BUSY!"=="1" (
-    timeout /t 2 /nobreak >nul
-) else (
-    echo [+] Порт 5037 свободен.
-)
 
 REM ====== AVD: ПРОВЕРКА / СОЗДАНИЕ ======
 "%EMULATOR%" -list-avds 2>nul | findstr /x /c:"%AVD_NAME%" >nul
@@ -138,8 +122,8 @@ if "%GPU_CHANGED%"=="1" (
 )
 
 REM ============================================================
-REM  ЗАПУСК ЭМУЛЯТОРА (БЕЗ adb start-server!)
-REM  Эмулятор сам поднимет ADB, когда запустится.
+REM  ЗАПУСК ЭМУЛЯТОРА
+REM  Никаких start-server! Эмулятор сам поднимет ADB.
 REM ============================================================
 echo [*] Запуск эмулятора...
 start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
@@ -148,7 +132,7 @@ start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -no-metrics
 
 REM ============================================================
-REM  ОЖИДАНИЕ ADB С ЗАЩИТОЙ ОТ ЗАВИСАНИЯ
+REM  ОЖИДАНИЕ ADB — простой for /f, без фоновых процессов
 REM ============================================================
 if not exist "%ADB%" goto :done
 
@@ -156,57 +140,24 @@ echo.
 echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
 
 set /a TOTAL_WAIT=0
-set /a ADB_RETRIES=0
 set "DEVICE_FOUND="
 
 :wait_device_loop
 
-REM --- adb devices в фоне с записью в файл (не блокирует скрипт) ---
-set "ADB_OUT=%TEMP%\adb_devices_%RANDOM%.txt"
-del /q "%ADB_OUT%" >nul 2>&1
-start /b cmd /c ""%ADB%" devices 2>nul > "%ADB_OUT%""
-
-set /a ADB_CMD_WAIT=0
-:wait_adb_output
-if exist "%ADB_OUT%" (
-    for %%S in ("%ADB_OUT%") do (
-        if %%~zS GTR 0 goto :check_devices
-    )
-)
-set /a ADB_CMD_WAIT+=1
-if !ADB_CMD_WAIT! GEQ %ADB_CMD_TIMEOUT% (
-    echo [!] adb devices не ответил за %ADB_CMD_TIMEOUT% сек. Убиваю adb.exe...
-    taskkill /F /IM adb.exe /T >nul 2>&1
-    timeout /t 2 /nobreak >nul
-    REM НЕ вызываем start-server! Пусть эмулятор сам поднимет ADB.
-    set /a ADB_RETRIES+=1
-    if !ADB_RETRIES! GEQ %ADB_RETRIES_MAX% (
-        echo [!] ADB не отвечает за %ADB_RETRIES_MAX% попытки.
-        echo     Проверьте порт 5037: netstat -ano ^| findstr :5037
-        echo     Проверьте антивирус.
-        del /q "%ADB_OUT%" >nul 2>&1
-        goto :done
-    )
-    del /q "%ADB_OUT%" >nul 2>&1
-    goto :wait_device_loop
-)
-timeout /t 1 /nobreak >nul
-goto :wait_adb_output
-
-:check_devices
-for /f "tokens=1" %%D in ('findstr /r "^emulator-" "%ADB_OUT%" 2^>nul') do (
+for /f "tokens=1" %%D in ('"%ADB%" devices 2^>nul ^| findstr /r "^emulator-"') do (
     set "DEVICE_FOUND=%%D"
-    del /q "%ADB_OUT%" >nul 2>&1
     goto :device_appeared
 )
-
-del /q "%ADB_OUT%" >nul 2>&1
 
 set /a TOTAL_WAIT+=1
 if !TOTAL_WAIT! GEQ %ADB_WAIT% (
     echo [!] Устройство не появилось за %ADB_WAIT% сек.
     goto :done
 )
+
+set /a MOD=TOTAL_WAIT %% 10
+if !MOD! EQU 0 echo [*] Ждём... !TOTAL_WAIT! сек.
+
 timeout /t 1 /nobreak >nul
 goto :wait_device_loop
 
