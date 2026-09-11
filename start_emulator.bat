@@ -3,16 +3,17 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — final optimized version
+REM  Android Emulator Launcher — API 33 optimized
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
-set "AVD_NAME=Pixel_7_API_35"
-set "SYSTEM_IMAGE=system-images;android-35;google_apis;x86_64"
-set "DEVICE=pixel_7"
-set "GPU_MODE=angle_indirect"
-set "BOOT_TIMEOUT=180"
-set "ADB_WAIT=40"
+set "AVD_NAME=Pixel_5_API_33"
+set "SYSTEM_IMAGE=system-images;android-33;google_apis;x86_64"
+set "DEVICE=pixel_5"
+set "GPU_MODE=swiftshader_indirect"
+set "BOOT_TIMEOUT=300"
+set "ADB_WAIT=60"
+set "ADB_CMD_TIMEOUT=5"
 set "ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL=5"
 
 REM ====== ПОИСК SDK ======
@@ -47,6 +48,7 @@ for /d %%V in ("%ANDROID_HOME%\cmdline-tools\*") do (
 )
 
 echo [*] ANDROID_HOME = %ANDROID_HOME%
+echo [*] AVD_NAME     = %AVD_NAME%
 echo [*] GPU_MODE     = %GPU_MODE%
 
 REM ====== ГИПЕРВИЗОР ======
@@ -60,6 +62,8 @@ sc query aehd >nul 2>&1 && (echo [+] AEHD активен) || (
 
 REM ====== СТОП СТАРЫХ ЭМУЛЯТОРОВ ======
 if exist "%ADB%" (
+    taskkill /F /IM adb.exe /T >nul 2>&1
+    timeout /t 1 /nobreak >nul
     "%ADB%" start-server >nul 2>&1
     for /f "tokens=1" %%E in ('"%ADB%" devices 2^>nul ^| findstr /r "^emulator-"') do (
         "%ADB%" -s %%E emu kill >nul 2>&1
@@ -103,7 +107,6 @@ set "GPU_CHANGED=0"
 if exist "%AVD_INI%" (
     echo [*] Перезапись GPU-настроек в config.ini...
 
-    REM Определяем текущий hw.gpu.mode (первую найденную строку)
     set "CUR_GPU="
     for /f "tokens=1,* delims==" %%A in ('findstr /b /i "hw.gpu.mode" "%AVD_INI%" 2^>nul') do (
         if not defined CUR_GPU set "CUR_GPU=%%B"
@@ -114,17 +117,16 @@ if exist "%AVD_INI%" (
         set "GPU_CHANGED=1"
     )
 
-    REM Удаляем ВСЕ строки hw.gpu.* (не только первую) и пишем заново
     findstr /v /b /i "hw.gpu.enabled hw.gpu.mode hw.ramSize hw.cpu.ncore vm.heapSize" "%AVD_INI%" > "%AVD_INI%.tmp"
     move /y "%AVD_INI%.tmp" "%AVD_INI%" >nul
 
     >>"%AVD_INI%" echo hw.gpu.enabled=yes
     >>"%AVD_INI%" echo hw.gpu.mode=%GPU_MODE%
-    >>"%AVD_INI%" echo hw.ramSize=4096
-    >>"%AVD_INI%" echo hw.cpu.ncore=4
-    >>"%AVD_INI%" echo vm.heapSize=576
+    >>"%AVD_INI%" echo hw.ramSize=2048
+    >>"%AVD_INI%" echo hw.cpu.ncore=2
+    >>"%AVD_INI%" echo vm.heapSize=256
 
-    echo [+] config.ini обновлён: hw.gpu.mode=%GPU_MODE%
+    echo [+] config.ini обновлён: hw.gpu.mode=%GPU_MODE%, RAM=2048, CPU=2
 ) else (
     echo [!] config.ini не найден: %AVD_INI%
 )
@@ -138,13 +140,14 @@ if "%GPU_CHANGED%"=="1" (
 REM ====== ADB ДО ЭМУЛЯТОРА ======
 if exist "%ADB%" (
     echo [*] Запуск ADB-сервера...
+    taskkill /F /IM adb.exe /T >nul 2>&1
+    timeout /t 1 /nobreak >nul
     "%ADB%" start-server >nul 2>&1
 )
 
 REM ====== ЗАПУСК ЭМУЛЯТОРА ======
 echo [*] Запуск эмулятора "%AVD_NAME%" (GPU: %GPU_MODE%)...
 start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
-    -gpu angle_indirect ^
     -no-boot-anim ^
     -no-audio ^
     -camera-back none ^
@@ -153,30 +156,102 @@ start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -netspeed full ^
     -no-metrics
 
-REM ====== ОЖИДАНИЕ ======
+REM ============================================================
+REM  ОЖИДАНИЕ ADB С ЗАЩИТОЙ ОТ ЗАВИСАНИЯ
+REM ============================================================
 if not exist "%ADB%" goto :done
 
-echo [*] Ожидание устройства в ADB (до %ADB_WAIT% сек)...
-set /a DEV_WAIT=0
-:wait_dev
-"%ADB%" devices 2>nul | findstr /r "^emulator-" >nul
-if not errorlevel 1 goto :dev_ready
-set /a DEV_WAIT+=1
-if !DEV_WAIT! GEQ %ADB_WAIT% (
-    echo [!] Не появился в ADB за %ADB_WAIT% сек. Попробуйте swiftshader_indirect.
+echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
+
+set /a TOTAL_WAIT=0
+set /a ADB_RETRIES=0
+set "DEVICE_FOUND="
+
+:wait_device_loop
+
+REM --- Проверяем, жив ли adb.exe ---
+tasklist /FI "IMAGENAME eq adb.exe" 2>nul | find /i "adb.exe" >nul
+if errorlevel 1 (
+    echo [!] adb.exe не запущен. Стартую...
+    "%ADB%" start-server >nul 2>&1
+    timeout /t 2 /nobreak >nul
+)
+
+REM --- Запускаем adb devices в фоне с записью в файл ---
+set "ADB_OUT=%TEMP%\adb_devices_%RANDOM%.txt"
+del /q "%ADB_OUT%" >nul 2>&1
+start /b cmd /c ""%ADB%" devices 2>nul > "%ADB_OUT%""
+
+REM --- Ждём максимум ADB_CMD_TIMEOUT секунд появления непустого файла ---
+set /a ADB_CMD_WAIT=0
+:wait_adb_output
+if exist "%ADB_OUT%" (
+    for %%S in ("%ADB_OUT%") do (
+        if %%~zS GTR 0 goto :check_devices
+    )
+)
+set /a ADB_CMD_WAIT+=1
+if !ADB_CMD_WAIT! GEQ %ADB_CMD_TIMEOUT% (
+    echo [!] adb devices не ответил за %ADB_CMD_TIMEOUT% сек. Убиваю adb.exe и перезапускаю...
+    taskkill /F /IM adb.exe /T >nul 2>&1
+    timeout /t 2 /nobreak >nul
+    "%ADB%" start-server >nul 2>&1
+    set /a ADB_RETRIES+=1
+    if !ADB_RETRIES! GEQ 3 (
+        echo [!] ADB не удаётся запустить. Проверьте антивирус и порт 5037.
+        echo     netstat -ano ^| findstr :5037
+        del /q "%ADB_OUT%" >nul 2>&1
+        goto :done
+    )
+    del /q "%ADB_OUT%" >nul 2>&1
+    goto :wait_device_loop
+)
+timeout /t 1 /nobreak >nul
+goto :wait_adb_output
+
+:check_devices
+REM --- Ищем эмулятор в выводе ---
+for /f "tokens=1" %%D in ('findstr /r "^emulator-" "%ADB_OUT%" 2^>nul') do (
+    set "DEVICE_FOUND=%%D"
+    del /q "%ADB_OUT%" >nul 2>&1
+    goto :device_appeared
+)
+
+del /q "%ADB_OUT%" >nul 2>&1
+
+set /a TOTAL_WAIT+=1
+if !TOTAL_WAIT! GEQ %ADB_WAIT% (
+    echo [!] Устройство не появилось за %ADB_WAIT% сек.
+    echo     Проверьте: adb devices, netstat -ano ^| findstr :5037
     goto :done
 )
 timeout /t 1 /nobreak >nul
-goto :wait_dev
+goto :wait_device_loop
 
-:dev_ready
-echo [*] Устройство найдено. Ждём загрузку Android...
+:device_appeared
+echo [+] Устройство найдено: !DEVICE_FOUND!
+
+REM ============================================================
+REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
+REM ============================================================
+echo [*] Ожидание полной загрузки Android (макс. %BOOT_TIMEOUT% сек)...
 set /a BOOT_WAIT=0
+
 :wait_boot
-for /f "delims=" %%B in ('"%ADB%" shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
+for /f "delims=" %%B in ('"%ADB%" -s !DEVICE_FOUND! shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
 if "!BOOT!"=="1" goto :boot_done
+
 set /a BOOT_WAIT+=1
-if !BOOT_WAIT! GEQ %BOOT_TIMEOUT% (echo [!] Таймаут загрузки. & goto :done)
+if !BOOT_WAIT! GEQ %BOOT_TIMEOUT% (
+    echo [!] Загрузка не завершилась за %BOOT_TIMEOUT% сек.
+    echo     Возможно, эмулятор завис. Проверьте окно эмулятора.
+    goto :done
+)
+
+REM Раз в 30 секунд выводим статус, чтобы было видно, что скрипт жив
+set /a MOD=BOOT_WAIT %% 30
+if !MOD! EQU 0 echo [*] Всё ещё грузится... прошло !BOOT_WAIT! сек.
+
 timeout /t 1 /nobreak >nul
 goto :wait_boot
 
