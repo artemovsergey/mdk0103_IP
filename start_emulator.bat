@@ -3,7 +3,8 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 7 API 35 (final)
+REM  Android Emulator Launcher — Pixel 7 API 35 (final v2)
+REM  Защита от зависания ADB
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
@@ -14,7 +15,9 @@ set "GPU_MODE=angle_indirect"
 set "RAM_MB=2048"
 set "CPU_CORES=2"
 set "BOOT_TIMEOUT=180"
-set "ADB_WAIT=40"
+set "ADB_WAIT=60"
+set "ADB_CMD_TIMEOUT=5"
+set "ADB_RETRIES_MAX=3"
 set "ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL=3"
 
 REM ====== ПОИСК SDK ======
@@ -55,11 +58,26 @@ echo [*] RAM / CPU    = %RAM_MB% MB / %CPU_CORES% ядер
 echo ============================================================
 echo.
 
-REM ====== СТОП СТАРЫХ ЭМУЛЯТОРОВ ======
-echo [*] Остановка старых эмуляторов...
+REM ====== СТОП СТАРЫХ ЭМУЛЯТОРОВ И ADB ======
+echo [*] Остановка старых эмуляторов и зависшего ADB...
+taskkill /F /IM adb.exe /T >nul 2>&1
 taskkill /F /IM emulator.exe /T >nul 2>&1
 taskkill /F /IM qemu-system-x86_64.exe /T >nul 2>&1
-timeout /t 1 /nobreak >nul
+timeout /t 2 /nobreak >nul
+
+REM ====== ПРОВЕРКА ПОРТА 5037 ======
+echo [*] Проверка порта 5037...
+set "PORT_BUSY=0"
+for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr ":5037" ^| findstr "LISTENING"') do (
+    set "PORT_BUSY=1"
+    echo [!] Порт 5037 занят процессом PID=%%P. Убиваю...
+    taskkill /F /PID %%P >nul 2>&1
+)
+if "!PORT_BUSY!"=="1" (
+    timeout /t 2 /nobreak >nul
+) else (
+    echo [+] Порт 5037 свободен.
+)
 
 REM ====== AVD: ПРОВЕРКА / СОЗДАНИЕ ======
 "%EMULATOR%" -list-avds 2>nul | findstr /x /c:"%AVD_NAME%" >nul
@@ -104,7 +122,7 @@ if exist "%AVD_INI%" (
     echo [+] config.ini: GPU=%GPU_MODE%, RAM=%RAM_MB%, CPU=%CPU_CORES%
 )
 
-REM ====== ПРАВКА hardware-qemu.ini (он перебивает config.ini!) ======
+REM ====== ПРАВКА hardware-qemu.ini ======
 if exist "%HW_QEMU_INI%" (
     findstr /v /b /i "hw.gpu.enabled hw.gpu.mode" "%HW_QEMU_INI%" > "%HW_QEMU_INI%.tmp"
     move /y "%HW_QEMU_INI%.tmp" "%HW_QEMU_INI%" >nul
@@ -119,62 +137,118 @@ if "%GPU_CHANGED%"=="1" (
     rmdir /s /q "%AVD_DIR%\snapshots" >nul 2>&1
 )
 
-REM ====== ADB ДО ЭМУЛЯТОРА ======
+REM ====== ЗАПУСК ADB ======
 if exist "%ADB%" (
+    echo [*] Запуск ADB-сервера...
     "%ADB%" start-server >nul 2>&1
 )
 
 REM ====== ЗАПУСК ЭМУЛЯТОРА ======
-REM Важно: НЕ передаём -gpu, чтобы эмулятор брал режим из config.ini/hardware-qemu.ini
 echo [*] Запуск эмулятора...
 start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -no-boot-anim ^
     -no-audio ^
     -no-metrics
 
-REM ====== ОЖИДАНИЕ ADB ======
+REM ============================================================
+REM  ОЖИДАНИЕ ADB С ЗАЩИТОЙ ОТ ЗАВИСАНИЯ
+REM ============================================================
 if not exist "%ADB%" goto :done
 
-echo [*] Ожидание устройства в ADB...
-set /a DEV_WAIT=0
-:wait_dev
-"%ADB%" devices 2>nul | findstr /r "^emulator-" >nul
-if not errorlevel 1 goto :dev_ready
-set /a DEV_WAIT+=1
-if !DEV_WAIT! GEQ %ADB_WAIT% (
-    echo [!] Не появился в ADB за %ADB_WAIT% сек.
+echo.
+echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
+
+set /a TOTAL_WAIT=0
+set /a ADB_RETRIES=0
+set "DEVICE_FOUND="
+
+:wait_device_loop
+
+REM --- Проверяем, жив ли adb.exe ---
+tasklist /FI "IMAGENAME eq adb.exe" 2>nul | find /i "adb.exe" >nul
+if errorlevel 1 (
+    "%ADB%" start-server >nul 2>&1
+    timeout /t 2 /nobreak >nul
+)
+
+REM --- adb devices в фоне с записью в файл ---
+set "ADB_OUT=%TEMP%\adb_devices_%RANDOM%.txt"
+del /q "%ADB_OUT%" >nul 2>&1
+start /b cmd /c ""%ADB%" devices 2>nul > "%ADB_OUT%""
+
+set /a ADB_CMD_WAIT=0
+:wait_adb_output
+if exist "%ADB_OUT%" (
+    for %%S in ("%ADB_OUT%") do (
+        if %%~zS GTR 0 goto :check_devices
+    )
+)
+set /a ADB_CMD_WAIT+=1
+if !ADB_CMD_WAIT! GEQ %ADB_CMD_TIMEOUT% (
+    echo [!] adb devices не ответил за %ADB_CMD_TIMEOUT% сек. Убиваю adb.exe и перезапускаю...
+    taskkill /F /IM adb.exe /T >nul 2>&1
+    timeout /t 2 /nobreak >nul
+    "%ADB%" start-server >nul 2>&1
+    set /a ADB_RETRIES+=1
+    if !ADB_RETRIES! GEQ %ADB_RETRIES_MAX% (
+        echo [!] ADB не удаётся запустить за %ADB_RETRIES_MAX% попытки.
+        echo     Проверьте порт 5037: netstat -ano ^| findstr :5037
+        echo     Проверьте антивирус (исключения для platform-tools и .android)
+        del /q "%ADB_OUT%" >nul 2>&1
+        goto :done
+    )
+    del /q "%ADB_OUT%" >nul 2>&1
+    goto :wait_device_loop
+)
+timeout /t 1 /nobreak >nul
+goto :wait_adb_output
+
+:check_devices
+for /f "tokens=1" %%D in ('findstr /r "^emulator-" "%ADB_OUT%" 2^>nul') do (
+    set "DEVICE_FOUND=%%D"
+    del /q "%ADB_OUT%" >nul 2>&1
+    goto :device_appeared
+)
+
+del /q "%ADB_OUT%" >nul 2>&1
+
+set /a TOTAL_WAIT+=1
+if !TOTAL_WAIT! GEQ %ADB_WAIT% (
+    echo [!] Устройство не появилось за %ADB_WAIT% сек.
     goto :done
 )
 timeout /t 1 /nobreak >nul
-goto :wait_dev
+goto :wait_device_loop
 
-:dev_ready
-set "DEV="
-for /f "tokens=1" %%E in ('"%ADB%" devices 2^>nul ^| findstr /r "^emulator-"') do (
-    set "DEV=%%E"
-    goto :dev_ready2
-)
-:dev_ready2
+:device_appeared
+echo [+] Устройство найдено: %DEVICE_FOUND%
 
-echo [*] Устройство: %DEV%. Ждём загрузку Android...
+REM ============================================================
+REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
+REM ============================================================
+echo [*] Ожидание полной загрузки Android (макс. %BOOT_TIMEOUT% сек)...
 set /a BOOT_WAIT=0
+
 :wait_boot
-for /f "delims=" %%B in ('"%ADB%" -s %DEV% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
+for /f "delims=" %%B in ('"%ADB%" -s %DEVICE_FOUND% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
 if "!BOOT!"=="1" goto :boot_done
+
 set /a BOOT_WAIT+=1
 if !BOOT_WAIT! GEQ %BOOT_TIMEOUT% (
-    echo [!] Таймаут загрузки.
+    echo [!] Загрузка не завершилась за %BOOT_TIMEOUT% сек.
     goto :done
 )
+
 set /a MOD=BOOT_WAIT %% 15
 if !MOD! EQU 0 echo [*] Загрузка... !BOOT_WAIT! сек.
+
 timeout /t 1 /nobreak >nul
 goto :wait_boot
 
 :boot_done
 echo.
 echo [+] ====================================================
-echo [+]  Эмулятор "%AVD_NAME%" загружен!
+echo [+]  Эмулятор "%AVD_NAME%" загружен и готов к работе!
 echo [+] ====================================================
 echo.
 
