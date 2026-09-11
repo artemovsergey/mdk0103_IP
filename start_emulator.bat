@@ -3,22 +3,21 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  ADB DIAGNOSTIC — только проверка, без запуска эмулятора
-REM  Лог: %USERPROFILE%\Desktop\adb_diag.txt
+REM  Android Emulator Launcher — Pixel 5 API 33 (final v7)
+REM  Без start /b, без echo ^| findstr в цикле
 REM ============================================================
 
-set "LOG=%USERPROFILE%\Desktop\adb_diag.txt"
+REM ====== НАСТРОЙКИ ======
+set "AVD_NAME=Pixel_5_API_33"
+set "SYSTEM_IMAGE=system-images;android-33;google_apis;x86_64"
+set "DEVICE=pixel_5"
+set "GPU_MODE=angle_indirect"
+set "RAM_MB=2048"
+set "CPU_CORES=2"
+set "BOOT_TIMEOUT=180"
+set "ADB_WAIT=60"
 
-> "%LOG%" echo ============================================================
->>"%LOG%" echo  ADB DIAGNOSTIC
->>"%LOG%" echo  Дата: %DATE% %TIME%
->>"%LOG%" echo  Компьютер: %COMPUTERNAME%
->>"%LOG%" echo  Пользователь: %USERNAME%
->>"%LOG%" echo ============================================================
->>"%LOG%" echo.
-
-REM ====== 1. ПОИСК SDK ======
->>"%LOG%" echo ====== 1. ПОИСК SDK ======
+REM ====== ПОИСК SDK ======
 set "ANDROID_HOME="
 for %%D in (
     "%LOCALAPPDATA%\Android\Sdk"
@@ -28,157 +27,182 @@ for %%D in (
 ) do (
     if exist "%%~D\emulator\emulator.exe" (
         set "ANDROID_HOME=%%~D"
-        >>"%LOG%" echo Найден SDK: %%~D
+        goto :sdk_found
     )
 )
-if not defined ANDROID_HOME (
-    >>"%LOG%" echo [!] SDK не найден
-    goto :finish
-)
->>"%LOG%" echo.
+echo [!] Android SDK не найден.
+pause & exit /b 1
+:sdk_found
+set "ANDROID_SDK_ROOT=%ANDROID_HOME%"
 
 set "EMULATOR=%ANDROID_HOME%\emulator\emulator.exe"
 set "ADB=%ANDROID_HOME%\platform-tools\adb.exe"
->>"%LOG%" echo EMULATOR = %EMULATOR%
->>"%LOG%" echo ADB      = %ADB%
->>"%LOG%" echo.
 
-REM ====== 2. ПРОВЕРКА ФАЙЛОВ ======
->>"%LOG%" echo ====== 2. ФАЙЛЫ ======
-if exist "%EMULATOR%" (>>"%LOG%" echo [+] emulator.exe) else (>>"%LOG%" echo [!] emulator.exe НЕ найден)
-if exist "%ADB%" (>>"%LOG%" echo [+] adb.exe) else (>>"%LOG%" echo [!] adb.exe НЕ найден)
->>"%LOG%" echo.
-
-REM ====== 3. ВЕРСИЯ ADB ======
->>"%LOG%" echo ====== 3. ВЕРСИЯ ADB ======
-"%ADB%" version >>"%LOG%" 2>&1
->>"%LOG%" echo.
-
-REM ====== 4. ПОРТ 5037 ======
->>"%LOG%" echo ====== 4. ПОРТ 5037 ======
-netstat -ano 2>nul | findstr ":5037" >>"%LOG%" 2>&1
->>"%LOG%" echo.
-
-REM ====== 5. ПРОЦЕССЫ ======
->>"%LOG%" echo ====== 5. ПРОЦЕССЫ ADB/EMULATOR/QEMU ======
-tasklist 2>nul | findstr /i "adb emulator qemu" >>"%LOG%" 2>&1
->>"%LOG%" echo.
-
-REM ====== 6. ПРОВЕРКА adb devices С ТАЙМАУТОМ ======
->>"%LOG%" echo ====== 6. adb devices (таймаут 5 сек) ======
-set "PROBE=%TEMP%\adb_probe.txt"
-del /q "%PROBE%" >nul 2>&1
-
-start "" /min cmd /c ""%ADB%" devices > "%PROBE%" 2>&1"
-
-set /a WAIT=0
-:probe_loop
-if exist "%PROBE%" (
-    for %%S in ("%PROBE%") do (
-        if %%~zS GTR 0 goto :probe_done
+set "SDKMANAGER="
+set "AVDMANAGER="
+for /d %%V in ("%ANDROID_HOME%\cmdline-tools\*") do (
+    if exist "%%~V\bin\sdkmanager.bat" (
+        set "SDKMANAGER=%%~V\bin\sdkmanager.bat"
+        set "AVDMANAGER=%%~V\bin\avdmanager.bat"
     )
 )
-set /a WAIT+=1
-if !WAIT! GEQ 5 (
-    >>"%LOG%" echo [!] adb devices не ответил за 5 секунд — ЗАВИС
-    >>"%LOG%" echo [*] Убиваю adb.exe...
-    taskkill /F /IM adb.exe /T >>"%LOG%" 2>&1
-    del /q "%PROBE%" >nul 2>&1
-    goto :probe_killed
-)
-timeout /t 1 /nobreak >nul
-goto :probe_loop
 
-:probe_done
->>"%LOG%" echo [+] adb devices ответил за !WAIT! сек:
->>"%LOG%" echo ---
-type "%PROBE%" >>"%LOG%" 2>&1
->>"%LOG%" echo ---
-del /q "%PROBE%" >nul 2>&1
-goto :probe_after
+echo ============================================================
+echo   Android Emulator — Pixel 5 API 33
+echo ============================================================
+echo [*] ANDROID_HOME = %ANDROID_HOME%
+echo [*] GPU_MODE     = %GPU_MODE%
+echo [*] RAM / CPU    = %RAM_MB% MB / %CPU_CORES% ядер
+echo ============================================================
+echo.
 
-:probe_killed
->>"%LOG%" echo [!] adb.exe убит. Ждём 2 сек и пробуем снова с явным портом...
+REM ====== СТОП СТАРЫХ ПРОЦЕССОВ ======
+echo [*] Остановка старых эмуляторов и ADB...
+taskkill /F /IM emulator.exe /T >nul 2>&1
+taskkill /F /IM qemu-system-x86_64.exe /T >nul 2>&1
+taskkill /F /IM adb.exe /T >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-set "PROBE=%TEMP%\adb_probe2.txt"
-del /q "%PROBE%" >nul 2>&1
-start "" /min cmd /c ""%ADB%" -L tcp:5037 devices > "%PROBE%" 2>&1"
+REM ====== AVD: ПРОВЕРКА / СОЗДАНИЕ ======
+"%EMULATOR%" -list-avds 2>nul | findstr /x /c:"%AVD_NAME%" >nul
+if errorlevel 1 (
+    echo [!] AVD "%AVD_NAME%" не найден. Создаю...
+    if not exist "%SDKMANAGER%" (echo [!] sdkmanager не найден. & pause & exit /b 1)
+    call "%SDKMANAGER%" --sdk_root="%ANDROID_HOME%" "%SYSTEM_IMAGE%" --licenses < nul
+    call "%SDKMANAGER%" --sdk_root="%ANDROID_HOME%" "%SYSTEM_IMAGE%"
+    if not exist "%AVDMANAGER%" (echo [!] avdmanager не найден. & pause & exit /b 1)
+    echo no | call "%AVDMANAGER%" create avd -n "%AVD_NAME%" -k "%SYSTEM_IMAGE%" -d "%DEVICE%" --force
+) else (
+    echo [+] AVD "%AVD_NAME%" найден.
+)
 
-set /a WAIT=0
-:probe_loop2
-if exist "%PROBE%" (
-    for %%S in ("%PROBE%") do (
-        if %%~zS GTR 0 goto :probe_done2
+set "AVD_DIR=%USERPROFILE%\.android\avd\%AVD_NAME%.avd"
+set "AVD_INI=%AVD_DIR%\config.ini"
+set "HW_QEMU_INI=%AVD_DIR%\hardware-qemu.ini"
+set "GPU_CHANGED=0"
+
+REM ====== ПРАВКА config.ini ======
+if exist "%AVD_INI%" (
+    set "CUR_GPU="
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /i "hw.gpu.mode" "%AVD_INI%" 2^>nul') do (
+        if not defined CUR_GPU set "CUR_GPU=%%B"
     )
+    if /i not "!CUR_GPU!"=="%GPU_MODE%" (
+        echo [*] config.ini: было !CUR_GPU! -^> %GPU_MODE%
+        set "GPU_CHANGED=1"
+    )
+
+    findstr /v /b /i "hw.gpu.enabled hw.gpu.mode hw.ramSize hw.cpu.ncore vm.heapSize hw.audioInput hw.audioOutput" "%AVD_INI%" > "%AVD_INI%.tmp"
+    move /y "%AVD_INI%.tmp" "%AVD_INI%" >nul
+
+    >>"%AVD_INI%" echo hw.gpu.enabled=yes
+    >>"%AVD_INI%" echo hw.gpu.mode=%GPU_MODE%
+    >>"%AVD_INI%" echo hw.ramSize=%RAM_MB%
+    >>"%AVD_INI%" echo hw.cpu.ncore=%CPU_CORES%
+    >>"%AVD_INI%" echo vm.heapSize=256
+    >>"%AVD_INI%" echo hw.audioInput=no
+    >>"%AVD_INI%" echo hw.audioOutput=no
+
+    echo [+] config.ini: GPU=%GPU_MODE%, RAM=%RAM_MB%, CPU=%CPU_CORES%
 )
-set /a WAIT+=1
-if !WAIT! GEQ 5 (
-    >>"%LOG%" echo [!] adb devices с -L tcp:5037 тоже не ответил за 5 сек.
-    del /q "%PROBE%" >nul 2>&1
-    goto :probe_after
+
+REM ====== ПРАВКА hardware-qemu.ini ======
+if exist "%HW_QEMU_INI%" (
+    findstr /v /b /i "hw.gpu.enabled hw.gpu.mode" "%HW_QEMU_INI%" > "%HW_QEMU_INI%.tmp"
+    move /y "%HW_QEMU_INI%.tmp" "%HW_QEMU_INI%" >nul
+    >>"%HW_QEMU_INI%" echo hw.gpu.enabled=yes
+    >>"%HW_QEMU_INI%" echo hw.gpu.mode=%GPU_MODE%
+    echo [+] hardware-qemu.ini: GPU=%GPU_MODE%
 )
+
+REM ====== СБРОС СНАПШОТА ПРИ СМЕНЕ GPU ======
+if "%GPU_CHANGED%"=="1" (
+    echo [*] GPU изменился — удаляю старый снапшот...
+    rmdir /s /q "%AVD_DIR%\snapshots" >nul 2>&1
+)
+
+REM ====== ЗАПУСК ЭМУЛЯТОРА ======
+echo [*] Запуск эмулятора...
+start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
+    -no-boot-anim ^
+    -no-audio ^
+    -no-metrics
+
+REM ============================================================
+REM  ОЖИДАНИЕ ADB — без echo ^| findstr в цикле
+REM ============================================================
+if not exist "%ADB%" goto :done
+
+echo.
+echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
+
+set "ADB_LIST=%TEMP%\adb_list.txt"
+set "ADB_FILTERED=%TEMP%\adb_filtered.txt"
+set /a TOTAL_WAIT=0
+set "DEVICE_FOUND="
+
+:wait_device_loop
+
+REM --- adb devices пишет в файл ---
+"%ADB%" devices > "%ADB_LIST%" 2>nul
+
+REM --- фильтруем через findstr ПРЯМО по файлу (без цикла) ---
+findstr /r "^emulator-" "%ADB_LIST%" > "%ADB_FILTERED%" 2>nul
+
+set "DEVICE_FOUND="
+for /f "tokens=1" %%D in (%ADB_FILTERED%) do (
+    if not defined DEVICE_FOUND set "DEVICE_FOUND=%%D"
+)
+
+if defined DEVICE_FOUND goto :device_appeared
+
+set /a TOTAL_WAIT+=1
+if !TOTAL_WAIT! GEQ %ADB_WAIT% (
+    echo [!] Устройство не появилось за %ADB_WAIT% сек.
+    del /q "%ADB_LIST%" "%ADB_FILTERED%" >nul 2>&1
+    goto :done
+)
+
+set /a MOD=TOTAL_WAIT %% 10
+if !MOD! EQU 0 echo [*] Ждём... !TOTAL_WAIT! сек.
+
 timeout /t 1 /nobreak >nul
-goto :probe_loop2
+goto :wait_device_loop
 
-:probe_done2
->>"%LOG%" echo [+] adb -L tcp:5037 devices ответил за !WAIT! сек:
->>"%LOG%" echo ---
-type "%PROBE%" >>"%LOG%" 2>&1
->>"%LOG%" echo ---
-del /q "%PROBE%" >nul 2>&1
+:device_appeared
+echo [+] Устройство найдено: %DEVICE_FOUND%
+del /q "%ADB_LIST%" "%ADB_FILTERED%" >nul 2>&1
 
-:probe_after
->>"%LOG%" echo.
+REM ============================================================
+REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
+REM ============================================================
+echo [*] Ожидание полной загрузки Android (макс. %BOOT_TIMEOUT% сек)...
+set /a BOOT_WAIT=0
 
-REM ====== 7. ПРОБА FINDSTR ======
->>"%LOG%" echo ====== 7. Проверка findstr ======
-set "PROBE=%TEMP%\adb_probe3.txt"
-del /q "%PROBE%" >nul 2>&1
-"%ADB%" devices > "%PROBE%" 2>nul
+:wait_boot
+set "BOOT="
+for /f "delims=" %%B in ('"%ADB%" -s %DEVICE_FOUND% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
+if "!BOOT!"=="1" goto :boot_done
 
->>"%LOG%" echo Содержимое %PROBE%:
->>"%LOG%" echo ---
-type "%PROBE%" >>"%LOG%" 2>&1
->>"%LOG%" echo ---
-
->>"%LOG%" echo.
->>"%LOG%" echo Попытка for /f:
-for /f "tokens=1" %%D in (%PROBE%) do (
-    >>"%LOG%" echo Строка: [%%D]
+set /a BOOT_WAIT+=1
+if !BOOT_WAIT! GEQ %BOOT_TIMEOUT% (
+    echo [!] Загрузка не завершилась за %BOOT_TIMEOUT% сек.
+    goto :done
 )
-del /q "%PROBE%" >nul 2>&1
->>"%LOG%" echo.
 
-REM ====== 8. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ ADB ======
->>"%LOG%" echo ====== 8. Переменные ADB ======
->>"%LOG%" echo ADB_MDNS_OPENSCREEN=%ADB_MDNS_OPENSCREEN%
->>"%LOG%" echo ADB_MDNS_ENABLED=%ADB_MDNS_ENABLED%
->>"%LOG%" echo ADB_MDNS_AUTO_CONNECT=%ADB_MDNS_AUTO_CONNECT%
->>"%LOG%" echo TEMP=%TEMP%
->>"%LOG%" echo.
+set /a MOD=BOOT_WAIT %% 15
+if !MOD! EQU 0 echo [*] Загрузка... !BOOT_WAIT! сек.
 
-REM ====== 9. СЛУЖБА ADB ======
->>"%LOG%" echo ====== 9. Служба adb ======
-sc query adb 2>nul >>"%LOG%" 2>&1
->>"%LOG%" echo.
+timeout /t 1 /nobreak >nul
+goto :wait_boot
 
-REM ====== 10. АНТИВИРУС ======
->>"%LOG%" echo ====== 10. Антивирус ======
-wmic /namespace:\\root\SecurityCenter2 path AntiVirusProduct get displayName,productState /format:list 2>nul | findstr /r "." >>"%LOG%" 2>&1
->>"%LOG%" echo.
-
-:finish
-
->>"%LOG%" echo ============================================================
->>"%LOG%" echo  КОНЕЦ ДИАГНОСТИКИ
->>"%LOG%" echo ============================================================
-
+:boot_done
 echo.
-echo ============================================================
-echo  Готово! Лог сохранён:
-echo  %LOG%
-echo ============================================================
+echo [+] ====================================================
+echo [+]  Эмулятор "%AVD_NAME%" загружен и готов к работе!
+echo [+] ====================================================
 echo.
-pause
+
+:done
+del /q "%ADB_LIST%" "%ADB_FILTERED%" >nul 2>&1
 endlocal
