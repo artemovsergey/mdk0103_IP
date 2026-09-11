@@ -3,8 +3,8 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
 REM ============================================================
-REM  Android Emulator Launcher — Pixel 7 API 35 (final)
-REM  БЕЗ adb start-server — защита от зависания
+REM  Android Emulator Launcher — Pixel 7 API 35 (final v4)
+REM  Исправлен for /f с кавычками
 REM ============================================================
 
 REM ====== НАСТРОЙКИ ======
@@ -123,7 +123,6 @@ if "%GPU_CHANGED%"=="1" (
 
 REM ============================================================
 REM  ЗАПУСК ЭМУЛЯТОРА
-REM  Никаких start-server! Эмулятор сам поднимет ADB.
 REM ============================================================
 echo [*] Запуск эмулятора...
 start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
@@ -132,26 +131,32 @@ start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
     -no-metrics
 
 REM ============================================================
-REM  ОЖИДАНИЕ ADB — простой for /f, без фоновых процессов
+REM  ОЖИДАНИЕ ADB — БЕЗ вложенных кавычек в for /f
 REM ============================================================
 if not exist "%ADB%" goto :done
 
 echo.
 echo [*] Ожидание устройства в ADB (макс. %ADB_WAIT% сек)...
 
+set "ADB_LIST=%TEMP%\adb_list.txt"
 set /a TOTAL_WAIT=0
 set "DEVICE_FOUND="
 
 :wait_device_loop
 
-for /f "tokens=1" %%D in ('"%ADB%" devices 2^>nul ^| findstr /r "^emulator-"') do (
+"%ADB%" devices 2>nul > "%ADB_LIST%"
+
+set "DEVICE_FOUND="
+for /f "tokens=1" %%D in ('type "%ADB_LIST%" ^| findstr /r "^emulator-"') do (
     set "DEVICE_FOUND=%%D"
-    goto :device_appeared
 )
+
+if defined DEVICE_FOUND goto :device_appeared
 
 set /a TOTAL_WAIT+=1
 if !TOTAL_WAIT! GEQ %ADB_WAIT% (
     echo [!] Устройство не появилось за %ADB_WAIT% сек.
+    del /q "%ADB_LIST%" >nul 2>&1
     goto :done
 )
 
@@ -163,6 +168,7 @@ goto :wait_device_loop
 
 :device_appeared
 echo [+] Устройство найдено: %DEVICE_FOUND%
+del /q "%ADB_LIST%" >nul 2>&1
 
 REM ============================================================
 REM  ОЖИДАНИЕ ЗАГРУЗКИ ANDROID
@@ -171,6 +177,7 @@ echo [*] Ожидание полной загрузки Android (макс. %BOOT
 set /a BOOT_WAIT=0
 
 :wait_boot
+set "BOOT="
 for /f "delims=" %%B in ('"%ADB%" -s %DEVICE_FOUND% shell getprop sys.boot_completed 2^>nul') do set "BOOT=%%B"
 if "!BOOT!"=="1" goto :boot_done
 
