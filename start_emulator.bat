@@ -150,19 +150,16 @@ if "%GPU_CHANGED%"=="1" (
     rmdir /s /q "%AVD_DIR%\snapshots" >nul 2>&1
 )
 
-REM ====== START EMULATOR ======
+REM ====== START EMULATOR (HIDDEN CONSOLE) ======
 echo [*] Restarting adb server...
 if exist "%ADB%" call "%ADB%" start-server >nul 2>&1
 
+set "VBS=%TEMP%\emu_hidden.vbs"
+echo Set WshShell = CreateObject("WScript.Shell") > "%VBS%"
+echo WshShell.Run "%EMULATOR% -avd %AVD_NAME% -no-audio -no-metrics -no-boot-anim -camera-back none -camera-front none -gpu %GPU_MODE% -partition-size 2047", 0, False >> "%VBS%"
+cscript //nologo "%VBS%" >nul 2>&1
+del "%VBS%" >nul 2>&1
 echo [*] Starting emulator...
-start "" "%EMULATOR%" -avd "%AVD_NAME%" ^
-    -no-audio ^
-    -no-metrics ^
-    -no-boot-anim ^
-    -camera-back none ^
-    -camera-front none ^
-    -gpu %GPU_MODE% ^
-    -partition-size 2047
 
 REM ============================================================
 REM  WAIT FOR ADB DEVICE
