@@ -8,9 +8,9 @@
 
 ## Тестирование студентов
 
-- **ИП-242:** <a href="http://prep.scc/cgi-bin/testm/view.pl?prep=asv&grp=ip242&prd=2003">тестирование</a> · <a href="http://prep.scc/cgi-bin/testm/jrn.pl?prep=asv&sp=0907&grp=ip242&prd=2003">журнал</a> · <a href="http://prep.scc/cgi-bin/testm/jrn_reyting.pl?prep=asv&sp=0907&grp=ip242&prd=2003">рейтинг</a>
-- **ИП-245:** <a href="http://prep.scc/cgi-bin/testm/view.pl?prep=asv&grp=ip245&prd=2003">тестирование</a> · <a href="http://prep.scc/cgi-bin/testm/jrn.pl?prep=asv&sp=0907&grp=ip245&prd=2003">журнал</a> · <a href="http://prep.scc/cgi-bin/testm/jrn_reyting.pl?prep=asv&sp=0907&grp=ip245&prd=2003">рейтинг</a>
-- **ИП-246:** <a href="http://prep.scc/cgi-bin/testm/view.pl?prep=asv&grp=ip246&prd=2003">тестирование</a> · <a href="http://prep.scc/cgi-bin/testm/jrn.pl?prep=asv&sp=0907&grp=ip246&prd=2003">журнал</a> · <a href="http://prep.scc/cgi-bin/testm/jrn_reyting.pl?prep=asv&sp=0907&grp=ip246&prd=2003">рейтинг</a>
+- **ИП-242:** <a href="http://prep.scc/cgi-bin/testm/view.pl?prep=asv&grp=ip242&prd=1003">тестирование</a> · <a href="http://prep.scc/cgi-bin/testm/jrn.pl?prep=asv&sp=0907&grp=ip242&prd=1003">журнал</a> · <a href="http://prep.scc/cgi-bin/testm/jrn_reyting.pl?prep=asv&sp=0907&grp=ip242&prd=1003">рейтинг</a>
+- **ИП-245:** <a href="http://prep.scc/cgi-bin/testm/view.pl?prep=asv&grp=ip245&prd=1003">тестирование</a> · <a href="http://prep.scc/cgi-bin/testm/jrn.pl?prep=asv&sp=0907&grp=ip245&prd=1003">журнал</a> · <a href="http://prep.scc/cgi-bin/testm/jrn_reyting.pl?prep=asv&sp=0907&grp=ip245&prd=1003">рейтинг</a>
+- **ИП-246:** <a href="http://prep.scc/cgi-bin/testm/view.pl?prep=asv&grp=ip246&prd=1003">тестирование</a> · <a href="http://prep.scc/cgi-bin/testm/jrn.pl?prep=asv&sp=0907&grp=ip246&prd=1003">журнал</a> · <a href="http://prep.scc/cgi-bin/testm/jrn_reyting.pl?prep=asv&sp=0907&grp=ip246&prd=1003">рейтинг</a>
 
 # Раздел 1. Основы TypeScript
 
