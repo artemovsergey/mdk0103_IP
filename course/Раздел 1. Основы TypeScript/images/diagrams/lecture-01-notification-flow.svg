@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Поток данных мобильного уведомления</title>
+  <desc id="desc">Событие приложения преобразуется в несколько именованных переменных, затем в единую строку и выводится в консоль.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="#f8fafc"/>
+  <text x="480" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#0f172a">Один сценарий — несколько связанных значений</text>
+  <g filter="url(#shadow)">
+    <rect x="45" y="185" width="150" height="120" rx="65" fill="#ffffff" stroke="#2563eb" stroke-width="3"/>
+    <text x="120" y="225" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#1d4ed8">Событие</text>
+    <text x="120" y="257" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">новое</text>
+    <text x="120" y="283" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">сообщение</text>
+  </g>
+  <path d="M195 245 H255" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="260" y="100" width="200" height="100" rx="18" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+    <text x="360" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">author</text>
+    <text x="360" y="173" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">отправитель</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="260" y="220" width="200" height="100" rx="18" fill="#f5f3ff" stroke="#7c3aed" stroke-width="3"/>
+    <text x="360" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">text</text>
+    <text x="360" y="293" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">содержание</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="260" y="340" width="200" height="100" rx="18" fill="#fff7ed" stroke="#d97706" stroke-width="3"/>
+    <text x="360" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">unreadCount</text>
+    <text x="360" y="413" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">счётчик</text>
+  </g>
+  <path d="M195 245 C220 245 225 150 255 150" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M195 245 H255" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M195 245 C220 245 225 390 255 390" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M460 150 C520 150 515 220 555 220" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M460 270 H555" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M460 390 C520 390 515 300 555 300" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="560" y="200" width="205" height="120" rx="18" fill="#ecfdf5" stroke="#059669" stroke-width="3"/>
+    <text x="662" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#047857">Шаблон</text>
+    <text x="662" y="273" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">messageText</text>
+  </g>
+  <path d="M765 260 H825" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="830" y="205" width="100" height="110" rx="20" fill="#ffffff" stroke="#0f172a" stroke-width="3"/>
+    <text x="880" y="248" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">Вывод</text>
+    <text x="880" y="281" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">console</text>
+  </g>
+  <text x="480" y="500" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">Хорошие имена делают поток данных понятным без дополнительных комментариев.</text>
+</svg>

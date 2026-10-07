@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Состояния значения null и undefined</title>
+  <desc id="desc">Переменная профиля имеет состояния со значением, null, когда поле отсутствует намеренно, и undefined, когда значение не было задано.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="#f8fafc"/>
+  <text x="480" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#0f172a">Отсутствие значения — тоже состояние</text>
+  <g filter="url(#shadow)">
+    <circle cx="480" cy="270" r="78" fill="#eff6ff" stroke="#2563eb" stroke-width="4"/>
+    <text x="480" y="262" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#1d4ed8">nickname</text>
+    <text x="480" y="294" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">string | null</text>
+  </g>
+  <path d="M420 220 C335 165 250 145 170 175" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="55" y="100" width="220" height="105" rx="20" fill="#ffffff" stroke="#059669" stroke-width="3"/>
+    <text x="165" y="142" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#047857">Строка</text>
+    <text x="165" y="175" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">"Лена"</text>
+  </g>
+  <path d="M540 220 C625 165 710 145 790 175" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="685" y="100" width="220" height="105" rx="20" fill="#fffbeb" stroke="#d97706" stroke-width="3"/>
+    <text x="795" y="142" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#b45309">null</text>
+    <text x="795" y="175" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">намеренно нет</text>
+  </g>
+  <path d="M480 348 V425" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="330" y="430" width="300" height="75" rx="20" fill="#f5f3ff" stroke="#7c3aed" stroke-width="3"/>
+    <text x="480" y="463" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#6d28d9">undefined</text>
+    <text x="480" y="490" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#475569">значение не задано</text>
+  </g>
+  <text x="480" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">Проверка должна соответствовать смыслу поля, а не случайно выбранному синтаксису.</text>
+</svg>

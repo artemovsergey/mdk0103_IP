@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Жизненный цикл переменной в уведомлении мобильного приложения</title>
+  <desc id="desc">Схема показывает путь от входных данных к объявлению константы или изменяемой переменной, использованию в шаблоне и выводу уведомления.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="#f8fafc"/>
+  <text x="480" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#0f172a">От данных к готовому уведомлению</text>
+  <g filter="url(#shadow)">
+    <rect x="55" y="205" width="170" height="105" rx="18" fill="#ffffff" stroke="#2563eb" stroke-width="3"/>
+    <text x="140" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">Входные данные</text>
+    <text x="140" y="277" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">имя, счётчик,</text>
+    <text x="140" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">текст события</text>
+  </g>
+  <path d="M225 257 H315" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="320" y="105" width="220" height="115" rx="18" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+    <text x="430" y="146" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#1d4ed8">const</text>
+    <text x="430" y="177" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">связь не переназначают</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="320" y="305" width="220" height="115" rx="18" fill="#f5f3ff" stroke="#7c3aed" stroke-width="3"/>
+    <text x="430" y="346" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#6d28d9">let</text>
+    <text x="430" y="377" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">связь разрешено менять</text>
+  </g>
+  <path d="M540 162 C590 162 594 235 630 235" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M540 362 C590 362 594 285 630 285" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="635" y="205" width="190" height="110" rx="18" fill="#ecfdf5" stroke="#059669" stroke-width="3"/>
+    <text x="730" y="247" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#047857">Шаблонная строка</text>
+    <text x="730" y="281" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">собирает текст</text>
+  </g>
+  <path d="M825 260 H885" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="835" y="360" width="90" height="80" rx="40" fill="#fffbeb" stroke="#d97706" stroke-width="3"/>
+    <text x="880" y="407" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#b45309">вывод</text>
+  </g>
+  <path d="M825 290 C875 315 890 340 885 360" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="480" y="490" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#475569">Имя связывает смысл и место, тип ограничивает допустимые значения, а область видимости задаёт срок жизни.</text>
+</svg>

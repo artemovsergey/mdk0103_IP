@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Выбор структуры коллекции</title>
+  <desc id="desc">В зависимости от вопроса к данным выбирается массив с повторениями и порядком, множество уникальных значений или словарь пар ключ и значение.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="#f8fafc"/>
+  <text x="480" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#0f172a">Структура должна отвечать на вопрос данных</text>
+  <g filter="url(#shadow)">
+    <rect x="330" y="85" width="300" height="90" rx="45" fill="#eff6ff" stroke="#2563eb" stroke-width="3"/>
+    <text x="480" y="120" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#1d4ed8">Какой вопрос мы задаём?</text>
+    <text x="480" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#475569">порядок, уникальность или поиск</text>
+  </g>
+  <path d="M400 175 C300 205 220 225 175 255" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M480 175 V250" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M560 175 C660 205 740 225 785 255" fill="none" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)">
+    <rect x="45" y="260" width="260" height="185" rx="24" fill="#ffffff" stroke="#2563eb" stroke-width="3"/>
+    <text x="175" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#1d4ed8">Array</text>
+    <text x="175" y="345" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">порядок важен</text>
+    <text x="175" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">повторы допустимы</text>
+    <text x="175" y="411" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">нужен список</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="350" y="260" width="260" height="185" rx="24" fill="#ffffff" stroke="#7c3aed" stroke-width="3"/>
+    <text x="480" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#6d28d9">Set</text>
+    <text x="480" y="345" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">только уникальные</text>
+    <text x="480" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">важно наличие</text>
+    <text x="480" y="411" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">дедупликация</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="655" y="260" width="260" height="185" rx="24" fill="#ffffff" stroke="#059669" stroke-width="3"/>
+    <text x="785" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#047857">Map</text>
+    <text x="785" y="345" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">ключ → значение</text>
+    <text x="785" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">нужен быстрый поиск</text>
+    <text x="785" y="411" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">словарь</text>
+  </g>
+  <text x="480" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#475569">Не выбирайте структуру по привычке: опишите операции, которые приложение будет выполнять.</text>
+</svg>
